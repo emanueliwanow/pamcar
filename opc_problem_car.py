@@ -6,7 +6,7 @@ import numpy as np
 opti = casadi.Opti()
 
 # Parameters
-intervals = 20 # Number of control intervals per phase
+intervals = 100 # Number of control intervals per phase
 n_phases = 2
 N = n_phases*intervals
 L = 0.16 # Length of the car
@@ -14,13 +14,16 @@ delta_min = -pi/4# Minimum steering angle
 delta_max = pi/4 # Maximum steering angle
 a_min = -0.1 # Minimum acceleration
 a_max = 0.1 # Maximum acceleration
-v_max = 10 # Maximum velocity
-ac_max = 0.1 # Maximum centripetal acceleration
+v_max = 1 # Maximum velocity
+ac_max = 0.01 # Maximum centripetal acceleration
 x_min = -10 # Min Boundary x of the track
 y_min = -10 # Min Boundary y of the track
 x_max = 10 # Max Boundary x of the track
 y_max = 10 # Max Boundary y of the track
+
+# Defining the intermediate state
 door1 = [2, 3]
+X_1 = [door1[0],door1[1],0,0.1]
 
 
 # State variables
@@ -34,23 +37,40 @@ v = X[3,:]                # velocity
 U = opti.variable(2,N+1)
 delta = U[0,:]            # steering angle
 a = U[1,:]                # acceleration
-nt = opti.variable()      # step in witch car passes the door
 
 # Cost function
 T = opti.variable()       # time to be minimized
-
+'''
 # ODE right handside
 xdot = v*cos(theta)
 ydot = v*sin(theta)
 thetadot = (v*sin(delta))/L
 vdot = a
 Xdot = vertcat(xdot,ydot,thetadot,vdot)
-
+'''
 # Optimization problem
 opti.minimize(T) # Minimize the time to complete the trajectory
 
+x1 = MX.sym('x1')
+x2 = MX.sym('x2')
+x3 = MX.sym('x3')
+x4 = MX.sym('x4')
+
+u1 = MX.sym('u1')
+u2 = MX.sym('u2')
+
+x1dot = x4*cos(x3)
+x2dot = x4*sin(x3)
+x3dot = (x4*sin(u1))/L
+x4dot = u2
+
+X_func = vertcat(x1,x2,x3,x4)
+U_func = vertcat(u1,u2)
+Xdot = vertcat(x1dot,x2dot,x3dot,x4dot)
+
+
 # ODE right handside function
-f = Function('f', [X,U],[Xdot])
+f = Function('f', [X_func,U_func],[Xdot])
 M = 4
 dt = T/N # length of the control interval
 for k in range(N): # loop over control intervals
@@ -60,14 +80,22 @@ for k in range(N): # loop over control intervals
    k3 = f(X[:,k]+dt/2*k2, U[:,k])
    k4 = f(X[:,k]+dt*k3,   U[:,k])
    x_next = X[:,k] + dt/6*(k1+2*k2+2*k3+k4) 
-   #opti.subject_to(X[:,k+1]==x_next) # close the gaps
+   opti.subject_to(X[:,k+1]==x_next) # close the gaps
    
 
 # Boundary Conditions
 opti.subject_to(x[0]==0) # Start x position
 opti.subject_to(y[0]==0) # Start y position
+opti.subject_to(v[0]==0) # Start v
+opti.subject_to(theta[0]==pi/2) # Start theta position
+
+
+opti.subject_to(X[:,int(N/n_phases)]==X_1) # Intermediate state
+
+
 opti.subject_to(x[N]==0) # End x position
 opti.subject_to(y[N]==0) # End y position
+opti.subject_to(v[N]==0) # End v
 
 # Inequality Constraints
 opti.subject_to(opti.bounded(delta_min,delta,delta_max)) # Limit on steering angle
@@ -82,18 +110,17 @@ opti.subject_to(ac(v,delta,L)<=ac_max)
 # Environment Constraints
 opti.subject_to(opti.bounded(x_min,x,x_max)) # Boundary x of the track
 opti.subject_to(opti.bounded(y_min,y,y_max)) # Boundary y of the track
-opti.subject_to(x[nt]==door1[0]) # Pass through door
-opti.subject_to(y[nt]==door1[1]) # Pass through door
-opti.subject_to(delta[nt]==0) # Angle through the door must be zero
+
+
 
 # Initial guess for state variables
 x_guess = np.zeros(N + 1)
-x_guess[0:20] = np.linspace(0, 2, 20)  # Linear interpolation to door
-x_guess[20:41] = np.linspace(2,0,21) # Return to starting point
+x_guess[0:int(N/(n_phases))] = np.linspace(0, 2, int(N/n_phases))  # Linear interpolation to door
+x_guess[int(N/(n_phases)):N+1] = np.linspace(2,0,int(N/n_phases)+1) # Return to starting point
 
 y_guess = np.zeros(N + 1)
-y_guess[0:20] = np.linspace(0, 3, 20)  # Linear interpolation to door
-y_guess[20:41] = np.linspace(2,0,21)  # Return to starting point
+y_guess[0:int(N/(n_phases))] = np.linspace(0, 3, int(N/n_phases))  # Linear interpolation to door
+y_guess[int(N/(n_phases)):N+1] = np.linspace(3,0,int(N/n_phases)+1) # Return to starting point
 
 theta_guess = np.zeros(N + 1)  # Assuming initial heading towards door
 v_guess = np.ones(N + 1)  # Starting with moderate velocity
@@ -109,13 +136,13 @@ a_guess = np.append(a_guess, 0)  # Add a single final element of 0
 
 # Initial guess for additional variables
 T_guess = 10  # Rough estimate of total time
-nt_guess = 20  # Assuming door reached halfway
 
-print("x_guess shape:", x_guess)
-print("y_guess shape:", y_guess)
-print("theta_guess shape:", theta_guess)
-print("v_guess shape:", v_guess)
-print("delta_guess shape:", delta)
+
+#print("x_guess shape:", x_guess)
+#print("y_guess shape:", y_guess)
+#print("theta_guess shape:", theta_guess)
+#print("v_guess shape:", v_guess)
+#print("delta_guess shape:", delta)
 #print("a_guess shape:", a_guess)
 
 
@@ -123,7 +150,7 @@ print("delta_guess shape:", delta)
 opti.set_initial(X[:, :], np.vstack((x_guess, y_guess, theta_guess, v_guess)))
 #opti.set_initial(U[:, :], np.vstack((delta_guess, a_guess)))
 opti.set_initial(T, T_guess)
-opti.set_initial(nt, nt_guess)
+
 
 
 # Solver
@@ -136,12 +163,15 @@ sol = opti.solve()
 # ---- post-processing        ------
 from pylab import plot, step, figure, legend, show, spy
 
-
+"""
 plot(sol.value(x),label="x")
 plot(sol.value(y),label="y")
 legend(loc="upper left")
 
 """
+figure()
 plot(sol.value(x),sol.value(y))
-"""
+
+figure()
+plot(sol.value(v))
 show()
