@@ -95,7 +95,7 @@ for k in range(N): # loop over control intervals
 opti.subject_to(x[0]==0) # Start x position
 opti.subject_to(y[0]==0) # Start y position
 opti.subject_to(v[0]==0) # Start v
-opti.subject_to(theta[0]==pi/2) # Start theta position
+#opti.subject_to(theta[0]==pi/2) # Start theta position
 
 opti.subject_to(x[N]==0) # End x position
 opti.subject_to(y[N]==0) # End y position
@@ -174,7 +174,7 @@ plt.scatter(sol.value(x), sol.value(y),s=20, c=sol.value(v), cmap='viridis')
 
 plt.plot(points[0,:],points[1,:],'Dr',ms=6, label="Doors")
 for key, value in doors.items():
-   plt.text(value[0][0]+0.7,value[0][1]+0.5,key)
+   plt.text(value[0][0]+0.1,value[0][1]+0.1,key)
 #plt.plot(middle_points[0,:],middle_points[1,:],'x')
 plt.plot(x_guess,y_guess,linestyle='dotted', label="Initial guess")
 plt.colorbar(label="Velocity [m/s]")
