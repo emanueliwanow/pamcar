@@ -45,6 +45,4 @@ for door_letter in doors:
 
 print(middle_points)
 print(middle_points_theta)
-middle_points_theta = np.array([[0.785,0,-0.785,-pi]])
-
 
