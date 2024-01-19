@@ -156,8 +156,8 @@ sol = opti.solve()
 # Plot Graphics
 
 plt.figure()
-plt.plot(sol.value(x),label="x")
-plt.plot(sol.value(y),label="y")
+#plt.plot(sol.value(x),label="x")
+#plt.plot(sol.value(y),label="y")
 plt.plot(sol.value(a),label="a")
 plt.plot(sol.value(theta),label="theta")
 plt.plot(sol.value(delta),label="delta")
@@ -171,13 +171,16 @@ plt.figure()
 plt.plot(0,0,'*b',ms=10, label="Start/End")
 plt.plot(sol.value(x),sol.value(y),'g',ms=4,linewidth='0.5',label="Optimal trajectory")
 plt.scatter(sol.value(x), sol.value(y),s=20, c=sol.value(v), cmap='viridis')
+
 plt.plot(points[0,:],points[1,:],'Dr',ms=6, label="Doors")
+for key, value in doors.items():
+   plt.text(value[0][0]+0.7,value[0][1]+0.5,key)
 #plt.plot(middle_points[0,:],middle_points[1,:],'x')
 plt.plot(x_guess,y_guess,linestyle='dotted', label="Initial guess")
 plt.colorbar(label="Velocity [m/s]")
 plt.title("Optimal Trajectory")
 plt.xlabel("Position x")
 plt.ylabel("Position y")
-plt.legend(loc="lower right")
+plt.legend(loc="upper left")
 
 plt.show()

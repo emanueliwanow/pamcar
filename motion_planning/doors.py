@@ -1,18 +1,25 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from math import *
-"""
+"""EDIT HERE THE DOORS YOU WANT
+
 # Parallel doors
 doors = {'A':[(3,5),(3,4)],
          'B':[(8,5),(8,4)],
          'C':[(8,2),(8,1)],
          'D':[(3,2),(3,1)]}
-"""
-"""EDIT HERE THE DOORS YOU WANT"""
+
+# Scenario 1
 doors = {'A':[(2,6),(3,5)],
          'B':[(6,7),(6,6)],
          'C':[(10,5),(11,6)],
          'D':[(7,2),(7,1)]}
+"""
+# Scenario 3
+doors = {'A':[(3,3),(4,4)],
+         'B':[(3,-3),(4,-4)],
+         'C':[(-3,-3),(-4,-4)],
+         'D':[(-3,3),(-4,4)]}
 
 # Creating arrays with zeros
 middle_points = np.zeros((2,len(doors)))
@@ -21,12 +28,12 @@ points = np.zeros((2,2*len(doors)))
 
 i = 0
 j = 0
-for door_letter in doors:
+for key, value in doors.items():
     # Getting x,y coordinates from doors
-    x1 = doors[door_letter][0][0]
-    y1 = doors[door_letter][0][1]
-    x2 = doors[door_letter][1][0]
-    y2 = doors[door_letter][1][1]
+    x1 = value[0][0]
+    y1 = value[0][1]
+    x2 = value[1][0]
+    y2 = value[1][1]
 
     # Getting middle point inside door
     middle_x = (x1+x2)/2
