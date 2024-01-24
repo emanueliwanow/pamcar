@@ -17,10 +17,10 @@ N = n_phases*intervals
 L = 0.16 # Length of the car
 delta_min = -pi/4# Minimum steering angle
 delta_max = pi/4 # Maximum steering angle
-a_min = -0.3 # Minimum acceleration
-a_max = 0.3 # Maximum acceleration
+a_min = -0.1 # Minimum acceleration
+a_max = 0.1 # Maximum acceleration
 v_max = 1 # Maximum velocity
-ac_max = 0.3 # Maximum centripetal acceleration
+ac_max = 0.01 # Maximum centripetal acceleration
 x_min = -20 # Min Boundary x of the track
 y_min = -20 # Min Boundary y of the track
 x_max = 20 # Max Boundary x of the track
@@ -49,6 +49,13 @@ a = U[1,:]                # acceleration
 """ ---- Other variables ---- """
 T = opti.variable()       # time to be minimized
 
+"""
+A = opti.variable()
+B = opti.variable()
+C = opti.variable()
+D = opti.variable()
+letter_list = [A,B,C,D]
+"""
 letter_list = []
 for letter in doors:
    """
@@ -105,12 +112,12 @@ for k in range(N): # loop over control intervals
 opti.subject_to(x[0]==0) # Start x position
 opti.subject_to(y[0]==0) # Start y position
 opti.subject_to(v[0]==0) # Start v
-opti.subject_to(theta[0]==pi/2) # Start theta position
+#opti.subject_to(theta[0]==pi/2) # Start theta position
 
 opti.subject_to(x[N]==0) # End x position
 opti.subject_to(y[N]==0) # End y position
 opti.subject_to(v[N]==0) # End v
-opti.subject_to(theta[N]==pi/2) # Endtheta position
+#opti.subject_to(theta[N]==pi/2) # Endtheta position
 
 for letter in letter_list:
    opti.subject_to(opti.bounded(0,letter,1))
@@ -202,4 +209,4 @@ plt.legend(loc="upper left")
 
 plt.show()
 
-print(sol.value(T))
+print("T",sol.value(T))
