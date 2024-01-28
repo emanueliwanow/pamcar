@@ -14,13 +14,14 @@ opti = casadi.Opti()
 intervals = 20 # Number of control intervals per phase
 n_phases = len(doors)+1 # Number of piecewise trajectories between doors and start/end point
 N = n_phases*intervals
+
 L = 0.16 # Length of the car
-delta_min = -pi/4# Minimum steering angle
+delta_min = -pi/4 # Minimum steering angle
 delta_max = pi/4 # Maximum steering angle
-a_min = -0.1 # Minimum acceleration
-a_max = 0.1 # Maximum acceleration
-v_max = 1 # Maximum velocity
-ac_max = 0.01 # Maximum centripetal acceleration
+a_min = -1 # Minimum acceleration
+a_max = 1 # Maximum acceleration
+v_max = 10 # Maximum velocity
+ac_max = 1000 # Maximum centripetal acceleration
 x_min = -20 # Min Boundary x of the track
 y_min = -20 # Min Boundary y of the track
 x_max = 20 # Max Boundary x of the track
@@ -47,27 +48,26 @@ delta = U[0,:]            # steering angle
 a = U[1,:]                # acceleration
 
 """ ---- Other variables ---- """
-T = opti.variable()       # time to be minimized
-
-"""
-A = opti.variable()
-B = opti.variable()
-C = opti.variable()
-D = opti.variable()
-letter_list = [A,B,C,D]
-"""
 letter_list = []
+t0 = opti.variable() # Time variable for the first path
+time_list = [t0]
+
+i = 1
 for letter in doors:
    """
-   Generates an optimization variable for each doors that
+   Generates an optimization variable for each door, that
    determines the point between the gates through which the car
    should pass to ensure an optimal trajectory
    """
-   locals()[letter] = opti.variable() 
+   locals()[letter] = opti.variable()  
    exec("letter_list.append({})".format(letter))
+   exec("t{} = opti.variable()".format(i))
+   exec("time_list.append(t{})".format(i))
+   i += 1
+
 
 """ ---- Cost function ---- """
-opti.minimize(T) # Minimize the time to complete the trajectory
+opti.minimize(sum(time_list)) # Minimize the time to complete the trajectory
 
 x1 = MX.sym('x1')
 x2 = MX.sym('x2')
@@ -89,23 +89,26 @@ Xdot = vertcat(xdot,ydot,thetadot,vdot)
 '''
 x1dot = x4*cos(x3)
 x2dot = x4*sin(x3)
-x3dot = (x4*sin(u1))/L
+x3dot = (x4*tan(u1))/L
 x4dot = u2
 Xdot = vertcat(x1dot,x2dot,x3dot,x4dot)
 
 
 """ ---- ODE right handside function ---- """
 f = Function('f', [X_func,U_func],[Xdot])
-M = 4
-dt = T/N # length of the control interval
-for k in range(N): # loop over control intervals
-   # Runge-Kutta 4 integration
-   k1 = f(X[:,k],         U[:,k])
-   k2 = f(X[:,k]+dt/2*k1, U[:,k])
-   k3 = f(X[:,k]+dt/2*k2, U[:,k])
-   k4 = f(X[:,k]+dt*k3,   U[:,k])
-   x_next = X[:,k] + dt/6*(k1+2*k2+2*k3+k4) 
-   opti.subject_to(X[:,k+1]==x_next) # close the gaps
+
+
+for h in range(n_phases):
+   dt = time_list[h]/intervals # length of the control interval
+   for j in range(intervals): # loop over control intervals
+      # Runge-Kutta 4 integration
+      k = j+(h*intervals)
+      k1 = f(X[:,k],         U[:,k])
+      k2 = f(X[:,k]+dt/2*k1, U[:,k])
+      k3 = f(X[:,k]+dt/2*k2, U[:,k])
+      k4 = f(X[:,k]+dt*k3,   U[:,k])
+      x_next = X[:,k] + dt/6*(k1+2*k2+2*k3+k4) 
+      opti.subject_to(X[:,k+1]==x_next) # close the gaps
    
 
 """ ----- Boundary Conditions ----- """
@@ -120,7 +123,7 @@ opti.subject_to(v[N]==0) # End v
 #opti.subject_to(theta[N]==pi/2) # Endtheta position
 
 for letter in letter_list:
-   opti.subject_to(opti.bounded(0,letter,1))
+   opti.subject_to(opti.bounded(0.2,letter,0.8))
 
 i = 1
 for key,value in doors.items():
@@ -136,10 +139,11 @@ opti.subject_to(opti.bounded(delta_min,delta,delta_max)) # Limit on steering ang
 opti.subject_to(opti.bounded(a_min,a,a_max))             # Limit on acceleration
 opti.subject_to(v<=v_max)                                # Limit on velocity
 opti.subject_to(v>=0)                                    # Velocity is greater or equal than zero
-opti.subject_to(T>=0)                                    # Time must be positive
+for time in time_list:
+   opti.subject_to(time>=0)                              # Time must be positive
 
 ac = lambda v,delta,L: (v**2*tan(delta))/(L)  # Centripetal acceleration definition
-opti.subject_to(ac(v,delta,L)<=ac_max)
+opti.subject_to(opti.bounded(-ac_max,ac(v,delta,L),ac_max))
 
 """ ----- Environment Constraints ----- """
 opti.subject_to(opti.bounded(x_min,x,x_max)) # Boundary x of the track
@@ -149,7 +153,7 @@ opti.subject_to(opti.bounded(y_min,y,y_max)) # Boundary y of the track
 xp = 1 # Position x of the circle
 yp = 2 # Position y of the circle
 R = 2 # Radius os the circle
-opti.subject_to((x-xp)**2+(y-yp)**2>=R**2) # Declaring the circle obstacle
+#opti.subject_to((x-xp)**2+(y-yp)**2>=R**2) # Declaring the circle obstacle
 
 
 """ ----- Initial Guess for State Variables ----- """
@@ -172,12 +176,12 @@ theta_guess = np.zeros(N + 1)    # Assuming initial heading towards door
 v_guess = np.ones(N + 1)         # Starting with moderate velocity
 
 """ ----- Initial Guess for Other Variables ----- """
-T_guess = 10                     # Rough estimate of total time
+# Rough estimate of total time
 
 
 """ ---- Setting initial guesses ---- """
 opti.set_initial(X[:, :], np.vstack((x_guess, y_guess, theta_guess, v_guess)))
-opti.set_initial(T, T_guess)
+#opti.set_initial(T, T_guess)
 
 """ ---- Solver ---- """
 opti.solver('ipopt')
@@ -192,6 +196,7 @@ plt.plot(sol.value(a),label="a")
 plt.plot(sol.value(theta),label="theta")
 plt.plot(sol.value(delta),label="delta")
 plt.plot(sol.value(v),label="v")
+plt.plot(ac(sol.value(v),sol.value(delta),L),label="ac")
 plt.xlabel("N")
 plt.ylabel("Values")
 plt.legend(loc="upper right")
@@ -203,9 +208,11 @@ plt.plot(sol.value(x),sol.value(y),'g',ms=4,linewidth='0.5',label="Optimal traje
 plt.scatter(sol.value(x), sol.value(y),s=20, c=sol.value(v), cmap='viridis')
 
 # Plotting obstacles
+'''
 circle1 = plt.Circle((xp, yp), R, color='blue')
 ax = plt.gca()
 ax.add_patch(circle1)
+'''
 
 plt.plot(points[0,:],points[1,:],'Dr',ms=6, label="Doors")
 for key, value in doors.items():
@@ -220,5 +227,3 @@ plt.legend(loc="upper left")
 plt.axis('scaled')
 
 plt.show()
-
-print("T",sol.value(T))
