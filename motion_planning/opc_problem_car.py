@@ -145,6 +145,12 @@ opti.subject_to(ac(v,delta,L)<=ac_max)
 opti.subject_to(opti.bounded(x_min,x,x_max)) # Boundary x of the track
 opti.subject_to(opti.bounded(y_min,y,y_max)) # Boundary y of the track
 
+""" ----- Obstacles Constraints ----- """
+xp = 1 # Position x of the circle
+yp = 2 # Position y of the circle
+R = 2 # Radius os the circle
+opti.subject_to((x-xp)**2+(y-yp)**2>=R**2) # Declaring the circle obstacle
+
 
 """ ----- Initial Guess for State Variables ----- """
 x_guess = np.zeros(N + 1)
@@ -196,6 +202,11 @@ plt.plot(0,0,'*b',ms=10, label="Start/End")
 plt.plot(sol.value(x),sol.value(y),'g',ms=4,linewidth='0.5',label="Optimal trajectory")
 plt.scatter(sol.value(x), sol.value(y),s=20, c=sol.value(v), cmap='viridis')
 
+# Plotting obstacles
+circle1 = plt.Circle((xp, yp), R, color='blue')
+ax = plt.gca()
+ax.add_patch(circle1)
+
 plt.plot(points[0,:],points[1,:],'Dr',ms=6, label="Doors")
 for key, value in doors.items():
    plt.text(value[0][0]+0.1,value[0][1]+0.1,key)
@@ -206,6 +217,7 @@ plt.title("Optimal Trajectory")
 plt.xlabel("Position x")
 plt.ylabel("Position y")
 plt.legend(loc="upper left")
+plt.axis('scaled')
 
 plt.show()
 
