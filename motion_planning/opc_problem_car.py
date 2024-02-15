@@ -2,6 +2,7 @@ from casadi import *
 from math import pi
 import numpy as np
 from doors import middle_points, middle_points_theta, doors, points
+from obstacles import declareCircleObstacle
 # ---- post-processing ------
 from pylab import plot, step, figure, legend, show, spy, title, xlabel, ylabel, annotate
 import matplotlib.pyplot as plt
@@ -15,17 +16,20 @@ intervals = 20 # Number of control intervals per phase
 n_phases = len(doors)+1 # Number of piecewise trajectories between doors and start/end point
 N = n_phases*intervals
 
-L = 0.16 # Length of the car
+L = 1.6 # Length of the car
 delta_min = -pi/4 # Minimum steering angle
 delta_max = pi/4 # Maximum steering angle
-a_min = -1 # Minimum acceleration
-a_max = 1 # Maximum acceleration
+a_min = -5 # Minimum acceleration
+a_max = 5 # Maximum acceleration
 v_max = 10 # Maximum velocity
-ac_max = 1000 # Maximum centripetal acceleration
+ac_max = 2 # Maximum centripetal acceleration
 x_min = -20 # Min Boundary x of the track
 y_min = -20 # Min Boundary y of the track
 x_max = 20 # Max Boundary x of the track
 y_max = 20 # Max Boundary y of the track
+
+theta_start = pi # Desired Start for theta (in Rad)
+theta_end = pi  # Desired End for theta (in Rad)
 
 # Defining the intermediate states
 X_waypoints = np.zeros(((4,len(doors))))
@@ -115,12 +119,20 @@ for h in range(n_phases):
 opti.subject_to(x[0]==0) # Start x position
 opti.subject_to(y[0]==0) # Start y position
 opti.subject_to(v[0]==0) # Start v
-#opti.subject_to(theta[0]==pi/2) # Start theta position
+theta_start_cos = round(cos(theta_start),2)
+opti.subject_to(cos(theta[0])==theta_start_cos) # Start theta position
+theta_start_sin = round(sin(theta_start),2)
+opti.subject_to(sin(theta[0])==theta_start_sin) # Start theta position
+#opti.subject_to(theta[0]==pi)
 
 opti.subject_to(x[N]==0) # End x position
 opti.subject_to(y[N]==0) # End y position
 opti.subject_to(v[N]==0) # End v
-#opti.subject_to(theta[N]==pi/2) # Endtheta position
+theta_end_cos = round(cos(theta_end),2)
+opti.subject_to(cos(theta[N])==theta_end_cos) # End theta position
+theta_end_sin = round(sin(theta_end),2)
+opti.subject_to(sin(theta[N])==theta_end_sin) # End theta position
+#opti.subject_to(theta[N]==-pi)
 
 for letter in letter_list:
    opti.subject_to(opti.bounded(0.2,letter,0.8))
@@ -137,8 +149,7 @@ for key,value in doors.items():
 """ ----- Inequality Constraints -----"""
 opti.subject_to(opti.bounded(delta_min,delta,delta_max)) # Limit on steering angle
 opti.subject_to(opti.bounded(a_min,a,a_max))             # Limit on acceleration
-opti.subject_to(v<=v_max)                                # Limit on velocity
-opti.subject_to(v>=0)                                    # Velocity is greater or equal than zero
+opti.subject_to(opti.bounded(0,v,v_max))                 # Limit on velocity
 for time in time_list:
    opti.subject_to(time>=0)                              # Time must be positive
 
@@ -153,6 +164,7 @@ opti.subject_to(opti.bounded(y_min,y,y_max)) # Boundary y of the track
 xp = 1 # Position x of the circle
 yp = 2 # Position y of the circle
 R = 2 # Radius os the circle
+#declareCircleObstacle(opti,x,y,xp,yp,R)
 #opti.subject_to((x-xp)**2+(y-yp)**2>=R**2) # Declaring the circle obstacle
 
 
@@ -172,58 +184,95 @@ for i in range(len(doors)-1):
 x_guess[len(doors)*int(N/(n_phases)):N+1] = np.linspace(X_waypoints[0][i],0,int(N/n_phases)+1) # Return to starting point
 y_guess[len(doors)*int(N/(n_phases)):N+1] = np.linspace(X_waypoints[1][i],0,int(N/n_phases)+1) # Return to starting point
 
-theta_guess = np.zeros(N + 1)    # Assuming initial heading towards door
-v_guess = np.ones(N + 1)         # Starting with moderate velocity
+#theta_guess = np.zeros(N + 1)    # Assuming initial heading towards door
+#v_guess = np.ones(N + 1)         # Starting with moderate velocity
 
 """ ----- Initial Guess for Other Variables ----- """
 # Rough estimate of total time
 
 
 """ ---- Setting initial guesses ---- """
-opti.set_initial(X[:, :], np.vstack((x_guess, y_guess, theta_guess, v_guess)))
+opti.set_initial(X[0:2, :], np.vstack((x_guess, y_guess)))
+opti.set_initial(theta[0],theta_start)
+opti.set_initial(theta[N],-pi)
 #opti.set_initial(T, T_guess)
 
+"""Plot intermediate"""
+
+def intermediate_plot(i):
+   plt.figure(1)
+   a = opti.debug.value(x)
+   b = opti.debug.value(y)
+   if i%5 == 0:
+      plt.plot(a,b,label=str(i))
+   
+
+opti.callback(intermediate_plot)
 """ ---- Solver ---- """
 opti.solver('ipopt')
-sol = opti.solve()
+
+try:
+   sol = opti.solve()
+   SUCCESS = 1
+except:
+   print('Solver error')
+   SUCCESS = 0
 
 
-""" ---- Plotting ---- """
-plt.figure()
-#plt.plot(sol.value(x),label="x")
-#plt.plot(sol.value(y),label="y")
-plt.plot(sol.value(a),label="a")
-plt.plot(sol.value(theta),label="theta")
-plt.plot(sol.value(delta),label="delta")
-plt.plot(sol.value(v),label="v")
-plt.plot(ac(sol.value(v),sol.value(delta),L),label="ac")
-plt.xlabel("N")
-plt.ylabel("Values")
-plt.legend(loc="upper right")
+if SUCCESS:
+   """ ---- Plotting ---- """
+   plt.figure(2)
+   #plt.plot(sol.value(x),label="x")
+   #plt.plot(sol.value(y),label="y")
+   plt.plot(sol.value(a),label="a")
+   plt.plot(sol.value(theta),label="theta")
+   plt.plot(sol.value(delta),label="delta")
+   plt.plot(sol.value(v),label="v")
+   plt.plot(ac(sol.value(v),sol.value(delta),L),label="ac")
+   plt.xlabel("N")
+   plt.ylabel("Values")
+   plt.legend(loc="upper right")
 
 
-plt.figure()
-plt.plot(0,0,'*b',ms=10, label="Start/End")
-plt.plot(sol.value(x),sol.value(y),'g',ms=4,linewidth='0.5',label="Optimal trajectory")
-plt.scatter(sol.value(x), sol.value(y),s=20, c=sol.value(v), cmap='viridis')
+   plt.figure(3)
+   plt.plot(0,0,'*b',ms=10, label="Start/End")
+   plt.plot(sol.value(x),sol.value(y),'g',ms=4,linewidth='0.5',label="Optimal trajectory")
+   plt.scatter(sol.value(x), sol.value(y),s=20, c=sol.value(v), cmap='viridis')
 
-# Plotting obstacles
-'''
-circle1 = plt.Circle((xp, yp), R, color='blue')
-ax = plt.gca()
-ax.add_patch(circle1)
-'''
+   # Plotting obstacles
+   '''
+   circle1 = plt.Circle((xp, yp), R, color='blue')
+   ax = plt.gca()
+   ax.add_patch(circle1)
+   '''
 
-plt.plot(points[0,:],points[1,:],'Dr',ms=6, label="Doors")
-for key, value in doors.items():
-   plt.text(value[0][0]+0.1,value[0][1]+0.1,key)
-#plt.plot(middle_points[0,:],middle_points[1,:],'x')
-plt.plot(x_guess,y_guess,linestyle='dotted', label="Initial guess")
-plt.colorbar(label="Velocity [m/s]")
-plt.title("Optimal Trajectory")
-plt.xlabel("Position x")
-plt.ylabel("Position y")
-plt.legend(loc="upper left")
-plt.axis('scaled')
+   plt.plot(points[0,:],points[1,:],'Dr',ms=6, label="Doors")
+   for key, value in doors.items():
+      plt.text(value[0][0]+0.1,value[0][1]+0.1,key)
+   #plt.plot(middle_points[0,:],middle_points[1,:],'x')
+   plt.plot(x_guess,y_guess,linestyle='dotted', label="Initial guess")
+   plt.colorbar(label="Velocity [m/s]")
+   plt.title("Optimal Trajectory")
+   plt.xlabel("Position x")
+   plt.ylabel("Position y")
+   plt.legend(loc="upper left")
+   plt.axis('scaled')
 
-plt.show()
+   plt.show()
+else:
+   plt.figure(2)
+   plt.plot(opti.debug.value(x),opti.debug.value(y),'g',ms=4,linewidth='0.5',label="Optimal trajectory")
+   plt.scatter(opti.debug.value(x), opti.debug.value(y),s=20, c=opti.debug.value(v), cmap='viridis')
+   plt.plot(points[0,:],points[1,:],'Dr',ms=6, label="Doors")
+   for key, value in doors.items():
+      plt.text(value[0][0]+0.1,value[0][1]+0.1,key)
+   #plt.plot(middle_points[0,:],middle_points[1,:],'x')
+   plt.plot(x_guess,y_guess,linestyle='dotted', label="Initial guess")
+   plt.colorbar(label="Velocity [m/s]")
+   plt.title("Optimal Trajectory")
+   plt.xlabel("Position x")
+   plt.ylabel("Position y")
+   plt.legend(loc="upper left")
+   plt.axis('scaled')
+   plt.show()
+   opti.debug.show_infeasibilities()
