@@ -1,8 +1,7 @@
 from casadi import *
 from math import pi
 import numpy as np
-from doors import middle_points, middle_points_theta, doors, points
-from obstacles import declareCircleObstacle
+from doors import doors
 # ---- post-processing ------
 from pylab import plot, step, figure, legend, show, spy, title, xlabel, ylabel, annotate
 import matplotlib.pyplot as plt
@@ -30,6 +29,35 @@ y_max = 20 # Max Boundary y of the track
 
 theta_start = pi # Desired Start for theta (in Rad)
 theta_end = pi  # Desired End for theta (in Rad)
+
+# Creating arrays with zeros
+middle_points = np.zeros((2,len(doors)))
+middle_points_theta = np.zeros((1,len(doors)))
+points = np.zeros((2,2*len(doors)))
+
+i = 0
+j = 0
+for key, value in doors.items():
+    # Getting x,y coordinates from doors
+    x1 = value[0][0]
+    y1 = value[0][1]
+    x2 = value[1][0]
+    y2 = value[1][1]
+
+    # Getting middle point inside door
+    middle_x = (x1+x2)/2
+    middle_y = (y1+y2)/2
+
+    # Putting coordinates in array for visualization
+    points[:,j] = [x1,y1]
+    points[:,j+1] = [x2,y2]
+    middle_points[:,i] = [middle_x,middle_y]
+
+    # Getting entrance angle in each door
+    middle_points_theta[0,i] = (pi/2)-atan2(abs(y1-y2),abs(x1-x2))
+
+    i += 1
+    j += 2
 
 # Defining the intermediate states
 X_waypoints = np.zeros(((4,len(doors))))
