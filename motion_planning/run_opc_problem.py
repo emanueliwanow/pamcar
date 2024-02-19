@@ -1,12 +1,14 @@
 from casadi import *
 from math import pi
 import numpy as np
-from doors import doors
+from doors import doors1,doors2,doors3
 from opc_problem import OPC_Problem
 # ---- post-processing ------
 from pylab import plot, step, figure, legend, show, spy, title, xlabel, ylabel, annotate
 import matplotlib.pyplot as plt
 
+""" ---- Defining Envirorment ---- """
+doors = doors1
 
 """ ---- Optimization problem ---- """
 problem = OPC_Problem(doors)
@@ -106,9 +108,9 @@ if SUCCESS:
    
 else:
    plt.figure(2)
-   plt.plot(opti.debug.value(x),opti.debug.value(y),'g',ms=4,linewidth='0.5',label="Optimal trajectory")
-   plt.scatter(opti.debug.value(x), opti.debug.value(y),s=20, c=opti.debug.value(v), cmap='viridis')
-   plt.plot(points[0,:],points[1,:],'Dr',ms=6, label="Doors")
+   plt.plot(opti.debug.value(problem.x),opti.debug.value(problem.y),'g',ms=4,linewidth='0.5',label="Optimal trajectory")
+   plt.scatter(opti.debug.value(problem.x), opti.debug.value(problem.y),s=20, c=opti.debug.value(problem.v), cmap='viridis')
+   plt.plot(gates[0,:],gates[1,:],'Dr',ms=6, label="Doors")
    for key, value in doors.items():
       plt.text(value[0][0]+0.1,value[0][1]+0.1,key)
    #plt.plot(middle_points[0,:],middle_points[1,:],'x')
@@ -119,5 +121,16 @@ else:
    plt.ylabel("Position y")
    plt.legend(loc="upper left")
    plt.axis('scaled')
+   plt.figure(3)
+   #plt.plot(sol.value(x),label="x")
+   #plt.plot(sol.value(y),label="y")
+   plt.plot(opti.debug.value(problem.a),label="a")
+   plt.plot(opti.debug.value(problem.theta),label="theta")
+   plt.plot(opti.debug.value(problem.delta),label="delta")
+   plt.plot(opti.debug.value(problem.v),label="v")
+   plt.plot(problem.ac(opti.debug.value(problem.v),opti.debug.value(problem.delta),problem.L),label="ac")
+   plt.xlabel("N")
+   plt.ylabel("Values")
+   plt.legend(loc="upper right")
    plt.show()
    opti.debug.show_infeasibilities()

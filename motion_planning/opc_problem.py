@@ -246,3 +246,4 @@ class OPC_Problem():
         self.opti.set_initial(self.X[0:2, :], np.vstack((x_guess, y_guess)))
         self.opti.set_initial(self.theta[0],self.theta_start)
         self.opti.set_initial(self.theta[self.N],self.theta_end)
+        return 0
