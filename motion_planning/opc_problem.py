@@ -23,6 +23,14 @@ class OPC_Problem():
         self.n_phases = len(self.doors)+1 # Number of piecewise trajectories between doors and start/end point
         self.N = self.n_phases*self.intervals
 
+    def __init_door_to_door__(self, door1, door2):
+        self.opti = casadi.Opti()
+        self.door1 = door1
+        self.door2 = door2
+        self.intervals = 100    # Number of control intervals per phase
+        self.n_phases = 1       # Number of piecewise trajectories between doors and start/end point
+        self.N = self.n_phases*self.intervals
+
     def set_parameters(self):
         """
         Sets parameters for model, equality, inequality constraints
@@ -75,6 +83,27 @@ class OPC_Problem():
             exec("t{} = self.opti.variable()".format(i))
             exec("self.time_list.append(t{})".format(i))
             i += 1
+
+    def set_opti_variables_door_to_door(self):
+        """
+        Sets opti variables for altered Kinematic Bicycle Model
+        """
+
+        """ ---- State variables X ---- """
+        self.X = self.opti.variable(4,self.N+1)
+        self.x = self.X[0,:]                # x position
+        self.y = self.X[1,:]                # y position
+        self.theta = self.X[2,:]            # Heading angle
+        self.v = self.X[3,:]                # Velocity
+
+        """ ---- Control variables U ---- """
+        self.U = self.opti.variable(2,self.N+1)
+        self.delta = self.U[0,:]            # Steering angle
+        self.a = self.U[1,:]                # Acceleration
+
+        """ ---- Other variables ---- """
+        self.T = self.opti.variable()       # Time variable to be minimized
+        self.time_list = [self.T]
 
     def set_cost_function(self):
         """
@@ -155,6 +184,26 @@ class OPC_Problem():
             self.opti.subject_to(self.X[0,int((i*self.N)/self.n_phases)]==value[0][0]+self.letter_list[i-1]*(value[1][0]-value[0][0])) # x
             self.opti.subject_to(self.X[1,int((i*self.N)/self.n_phases)]==value[0][1]+self.letter_list[i-1]*(value[1][1]-value[0][1])) # y
             i += 1
+
+    def set_equality_constraints_door_to_door(self):
+        """
+        Sets boundary conditions (initial and final states) and constraint that car must pass between gates of each door
+        """
+        self.opti.subject_to(self.x[0]==self.door1[0])                 # Start x position
+        self.opti.subject_to(self.y[0]==self.door1[1])                 # Start y position
+        self.opti.subject_to(self.v[0]==self.door1[3])                 # Start v
+        theta_start_cos = round(cos(self.door1[2]),2)
+        self.opti.subject_to(cos(self.theta[0])==theta_start_cos)      # Start theta position
+        theta_start_sin = round(sin(self.door1[2]),2)
+        self.opti.subject_to(sin(self.theta[0])==theta_start_sin)      # Start theta position
+
+        self.opti.subject_to(self.x[self.N]==self.door2[0])            # End x position
+        self.opti.subject_to(self.y[self.N]==self.door2[1])            # End y position
+        self.opti.subject_to(self.v[self.N]==self.door2[3])            # End v
+        theta_end_cos = round(cos(self.door2[2]),2)
+        self.opti.subject_to(cos(self.theta[self.N])==theta_end_cos)   # End theta position
+        theta_end_sin = round(sin(self.door2[2]),2)
+        self.opti.subject_to(sin(self.theta[self.N])==theta_end_sin)   # End theta position
 
     def set_inequality_constraints(self):
         """ ----- Inequality Constraints -----"""
@@ -242,8 +291,18 @@ class OPC_Problem():
 
         return x_guess, y_guess
 
+    def initial_guess_door_to_door(self):
+        x_guess = np.linspace(self.door1[0], self.door2[0], self.N+1)   # Linear interpolation from door1 to door2
+        y_guess = np.linspace(self.door1[1], self.door2[1], self.N+1)   # Linear interpolation from door1 to door2
+        return x_guess, y_guess
+
     def set_initial_guess(self, x_guess, y_guess):
         self.opti.set_initial(self.X[0:2, :], np.vstack((x_guess, y_guess)))
         self.opti.set_initial(self.theta[0],self.theta_start)
         self.opti.set_initial(self.theta[self.N],self.theta_end)
         return 0
+    
+    def set_initial_guess_door_to_door(self, x_guess, y_guess):
+        self.opti.set_initial(self.X[0:2, :], np.vstack((x_guess, y_guess)))
+        self.opti.set_initial(self.theta[0],self.door1[2])
+        self.opti.set_initial(self.theta[self.N],self.door2[2])

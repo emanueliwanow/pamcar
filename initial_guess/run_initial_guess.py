@@ -1,7 +1,8 @@
 import os
 os.path.join('../motion_planning', 'doors.py')
+os.path.join('../motion_planning', 'opc_problem.py')
 from doors import doors, middle_points, middle_points_theta
-
+from opc_problem import *
 
 
 """ ---- Changing format of doors (considering the middle point) and adding initial and end positions : door = (0,0) ---- """
@@ -11,7 +12,7 @@ for i in range(len(middle_points[0])):
     door_y = middle_points[1][i]
     door_theta = middle_points_theta[0,i]
     doors_coordinates.append([door_x, door_y, 0.3, door_theta])
-    doors_coordinates.append([door_x, door_y, 0.3, door_theta-pi])
+    doors_coordinates.append([door_x, door_y, 0.3, door_thet+pi])
 doors_coordinates.append([0,0,0,0])
 
 """ ---- Test all the possibilities of roads between doors with normal angle and opposite angle (+pi) ---- """
@@ -21,7 +22,8 @@ tab = np.zeros((num_possibilities, num_possibilities))
 for i in range(num_possibilities):
   for j in range(num_possibilities):
     try :
-      time = opc_problem_door_to_door(doors_coordinates[i], doors_coordinates[j], 0)
+      print(i,j)
+      time, x, y, v, theta = opc_problem_door_to_door(doors_coordinates[i], doors_coordinates[j])
     except RuntimeError:
       print("Non feasible solution")
       tab[i][j] = inf
