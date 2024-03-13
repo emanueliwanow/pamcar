@@ -20,20 +20,6 @@ def filter_permutations(all_permutations, num_doors):
     return conserved_permutations
 
 
-""" ---- Distance between two given doors ---- """
-def distance(door1, door2):
-    return math.sqrt((math.pow(door1[0] - door2[0], 2) + math.pow(door1[1] - door2[1], 2)))
-
-
-""" ---- Overall distance of a given path ---- """
-def global_distance(path, doors):
-    global_distance = 0
-    for i in range(len(path) - 1):
-        global_distance += distance(doors[path[i]], doors[path[i + 1]])
-    global_distance += distance(doors[path[-1]], doors[path[0]])  # Coming back to initial point
-    return global_distance
-
-
 """ ---- Overall time of a given path ---- """
 def global_time(OPC_time_table, permutation):
     global_time = 0

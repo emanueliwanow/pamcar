@@ -23,22 +23,23 @@ class OPC_Problem():
         self.n_phases = len(self.doors)+1 # Number of piecewise trajectories between doors and start/end point
         self.N = self.n_phases*self.intervals
 
+
     def __init_door_to_door__(self, door1, door2):
         self.opti = casadi.Opti()
         self.door1 = door1
         self.door2 = door2
-        self.intervals = 20    # Number of control intervals per phase
-        self.n_phases = 1       # Number of piecewise trajectories between doors and start/end point
-        self.N = self.n_phases*self.intervals
+        self.intervals = 20  # Number of control intervals per phase
+        self.n_phases = 1  # Number of piecewise trajectories between doors and start/end point
+        self.N = self.n_phases * self.intervals
 
 
     def set_parameters(self):
         """
         Sets parameters for model, equality, inequality constraints
         """
-        self.L = 1.6                # Length of the car
-        self.delta_min = -pi/4      # Minimum steering angle
-        self.delta_max = pi/4       # Maximum steering angle
+        self.L = 0.3                # Length of the car
+        self.delta_min = -pi / 4    # Minimum steering angle
+        self.delta_max = pi / 4     # Maximum steering angle
         self.a_min = -5             # Minimum acceleration
         self.a_max = 5              # Maximum acceleration
         self.v_max = 10             # Maximum velocity
@@ -47,8 +48,8 @@ class OPC_Problem():
         self.y_min = -20            # Min Boundary y of the track
         self.x_max = 20             # Max Boundary x of the track
         self.y_max = 20             # Max Boundary y of the track
-        self.theta_start = pi       # Desired Start for theta (in Rad)
-        self.theta_end = -pi         # Desired End for theta (in Rad)
+        self.theta_start = -np.pi   # Desired Start for theta (in Rad)
+        self.theta_end = -np.pi     # aka 0
 
     def set_opti_variables(self):
         """
@@ -92,19 +93,19 @@ class OPC_Problem():
         """
 
         """ ---- State variables X ---- """
-        self.X = self.opti.variable(4,self.N+1)
-        self.x = self.X[0,:]                # x position
-        self.y = self.X[1,:]                # y position
-        self.theta = self.X[2,:]            # Heading angle
-        self.v = self.X[3,:]                # Velocity
+        self.X = self.opti.variable(4, self.N + 1)
+        self.x = self.X[0, :]  # x position
+        self.y = self.X[1, :]  # y position
+        self.theta = self.X[2, :]  # Heading angle
+        self.v = self.X[3, :]  # Velocity
 
         """ ---- Control variables U ---- """
-        self.U = self.opti.variable(2,self.N+1)
-        self.delta = self.U[0,:]            # Steering angle
-        self.a = self.U[1,:]                # Acceleration
+        self.U = self.opti.variable(2, self.N)
+        self.delta = self.U[0, :]  # Steering angle
+        self.a = self.U[1, :]  # Acceleration
 
         """ ---- Other variables ---- """
-        self.T = self.opti.variable()       # Time variable to be minimized
+        self.T = self.opti.variable()  # Time variable to be minimized
         self.time_list = [self.T]
 
 
@@ -193,33 +194,31 @@ class OPC_Problem():
         """
         Sets boundary conditions (initial and final states)
         """
-        self.opti.subject_to(self.x[0]==self.door1[0])                 # Start x position
-        self.opti.subject_to(self.y[0]==self.door1[1])                 # Start y position
-        self.opti.subject_to(self.v[0]==self.door1[3])                 # Start v
-        theta_start_cos = round(cos(self.door1[2]),2)
-        self.opti.subject_to(cos(self.theta[0])==theta_start_cos)      # Start theta position
-        theta_start_sin = round(sin(self.door1[2]),2)
-        self.opti.subject_to(sin(self.theta[0])==theta_start_sin)      # Start theta position
+        self.opti.subject_to(self.x[0] == self.door1[0])  # Start x position
+        self.opti.subject_to(self.y[0] == self.door1[1])  # Start y position
+        self.opti.subject_to(self.v[0] == self.door1[3])  # Start v
+        self.opti.subject_to(cos(self.theta[0] - self.door1[2]) == 1)
 
-        self.opti.subject_to(self.x[self.N]==self.door2[0])            # End x position
-        self.opti.subject_to(self.y[self.N]==self.door2[1])            # End y position
-        self.opti.subject_to(self.v[self.N]==self.door2[3])            # End v
-        theta_end_cos = round(cos(self.door2[2]),2)
-        self.opti.subject_to(cos(self.theta[self.N])==theta_end_cos)   # End theta position
-        theta_end_sin = round(sin(self.door2[2]),2)
-        self.opti.subject_to(sin(self.theta[self.N])==theta_end_sin)   # End theta position
+        self.opti.subject_to(self.x[self.N] == self.door2[0])  # End x position
+        self.opti.subject_to(self.y[self.N] == self.door2[1])  # End y position
+        self.opti.subject_to(self.v[self.N] == self.door2[3])  # End v
+        self.opti.subject_to(cos(self.theta[self.N] - self.door2[2]) == 1)
 
 
     def set_inequality_constraints(self):
         """ ----- Inequality Constraints -----"""
-        self.opti.subject_to(self.opti.bounded(self.delta_min,self.delta,self.delta_max)) # Limit on steering angle
-        self.opti.subject_to(self.opti.bounded(self.a_min,self.a,self.a_max))             # Limit on acceleration
-        self.opti.subject_to(self.opti.bounded(0,self.v,self.v_max))                      # Limit on velocity
+        self.opti.subject_to(self.opti.bounded(self.delta_min, self.delta, self.delta_max))  # Limit on steering angle
+        self.opti.subject_to(self.opti.bounded(self.a_min, self.a, self.a_max))  # Limit on acceleration
+        # self.opti.subject_to(self.opti.bounded(1e-1, self.v, self.v_max))  # Limit on velocity
+        self.opti.subject_to(self.opti.bounded(0, self.v, self.v_max))  # Limit on velocity
+        # self.opti.subject_to(self.opti.bounded(0.3, self.v, 0.3))  # Limit on velocity
         for time in self.time_list:
-            self.opti.subject_to(time>=0)                                                 # Time must be positive
+            # self.opti.subject_to(self.opti.bounded(0, time, self.N * 1.1))  # Time must be positive
+            self.opti.subject_to(self.opti.bounded(0, time, inf))  # Time must be positive
 
-        self.ac = lambda v,delta,L: (v**2*tan(delta))/(L)                                      # Centripetal acceleration definition
-        self.opti.subject_to(self.opti.bounded(-self.ac_max,self.ac(self.v,self.delta,self.L),self.ac_max))
+        self.ac = lambda v, delta, L: (v ** 2 * tan(delta)) / (L)  # Centripetal acceleration definition
+        self.opti.subject_to(self.opti.bounded(-self.ac_max, self.ac(self.v[:-1], self.delta, self.L), self.ac_max))
+
 
     def set_environment_constraints(self):
         """ ----- Environment Constraints ----- """
@@ -297,18 +296,69 @@ class OPC_Problem():
         return x_guess, y_guess
 
     def initial_guess_door_to_door(self):
-        x_guess = np.linspace(self.door1[0], self.door2[0], self.N+1)   # Linear interpolation from door1 to door2
-        y_guess = np.linspace(self.door1[1], self.door2[1], self.N+1)   # Linear interpolation from door1 to door2
+        distance_per_step = 0.2
+        x_guess = [self.door1[0]]
+        y_guess = [self.door1[1]]
+        theta_guess = [self.door1[2]]
+        v_guess = 0.3 * np.ones(self.N + 1)
+        t_guess = np.sqrt((self.door2[0] - self.door1[0]) ** 2 + (self.door2[1] - self.door1[1]) ** 2) / 0.3
 
-        denom = self.door2[0]-self.door1[0]
-        num = self.door2[1]-self.door1[1]
+        # Adding the first part of the path
+        for i in range(2):
+            x_guess.append(x_guess[-1] + distance_per_step * cos(self.door1[2])) # Horizontal displacement at beginning
+            y_guess.append(y_guess[-1] + distance_per_step * sin(self.door1[2])) # Vertical displacement at beginning
+            theta_guess.append(self.door1[2])
+
+        # Adding the second part of the path
+        for j in range(2):
+            if self.door2[1] - self.door1[1] < 0:
+                y_guess.append(y_guess[-1] - distance_per_step)
+                theta_guess.append(np.pi/2)
+            else:
+                y_guess.append(y_guess[-1] + distance_per_step)
+                theta_guess.append(-np.pi/2)
+            x_guess.append(x_guess[-1])
+
+        # Calculation for the third and fourth parts of the path
+        x_end = [self.door2[0]] # Auxiliary list
+        y_end = [self.door2[1]] # Auxiliary list
+        theta_end = [self.door2[2]] # Auxiliary list
+
+        # Calculation for the third part
+        for k in range(2):
+            x_end.append(x_end[-1] - distance_per_step * cos(self.door2[2])) # Horizontal displacement at the end
+            y_end.append(y_end[-1] - distance_per_step * sin(self.door2[2])) # Vertical displacement at the end
+            theta_end.append(self.door2[2])
+
+        # Calculation for the fourth part
+        for l in range(2):
+            if self.door2[1] - self.door1[1] <= 0:
+                y_end.append(y_end[-1] + distance_per_step)
+                theta_end.append(np.pi/2)
+            else:
+                y_end.append(y_end[-1] - distance_per_step)
+                theta_end.append(-np.pi/2)
+            x_end.append(x_end[-1])
+
+        # Interpolation for the middle part of the initial guess
+        x_guess.extend(np.linspace(x_guess[-1], x_end[-1], self.N + 1 - 10))  # Linear interpolation (-10 pts because 10 pts are already set with 1st, 2nd, 3rd and 4th)
+        y_guess.extend(np.linspace(y_guess[-1], y_end[-1], self.N + 1 - 10))  # Linear interpolation
+
+        denom = x_end[-1] - x_guess[-1]
+        num = y_end[-1] - y_guess[-1]
         if denom == 0:
-            theta_guess = pi/2 * sign(num) * np.ones(self.N+1)
-        else :
-            theta_guess = atan(num/denom) * np.ones(self.N+1)                    # Assuming initial heading towards door
+            theta_guess.extend(pi / 2 * sign(num) * np.ones(self.N + 1 - 10))
+        else:
+            theta_guess.extend(atan(num / denom) * np.ones(self.N + 1 - 10))  # Assuming initial heading towards door
 
-        v_guess = 0.3 * np.ones(self.N+1)
-        return x_guess, y_guess,theta_guess, v_guess
+        # Adding the last parts of the path
+        for m in range(5):
+            x_guess.append(x_end.pop())
+            y_guess.append(y_end.pop())
+            theta_guess.append(theta_end.pop())
+
+        return x_guess, y_guess, theta_guess, v_guess, t_guess
+
 
     def set_initial_guess(self, x_guess, y_guess):
         self.opti.set_initial(self.X[0:2, :], np.vstack((x_guess, y_guess)))
@@ -316,10 +366,10 @@ class OPC_Problem():
         self.opti.set_initial(self.theta[self.N],self.theta_end)
 
 
-    def set_initial_guess_door_to_door(self, x_guess, y_guess, theta_guess, v_guess):
-        self.opti.set_initial(self.X[0:3, :], np.vstack((x_guess, y_guess, theta_guess)))
-        self.opti.set_initial(self.theta[0],self.door1[2])
-        self.opti.set_initial(self.theta[self.N],self.door2[2])
-        self.opti.set_initial(self.v[0],self.door1[3])
-        self.opti.set_initial(self.v[self.N],self.door2[3])
+    def set_initial_guess_door_to_door(self, x_guess, y_guess, theta_guess, v_guess, t_guess):
+        self.opti.set_initial(self.x, x_guess)
+        self.opti.set_initial(self.y, y_guess)
+        self.opti.set_initial(self.theta, theta_guess)
+        self.opti.set_initial(self.v, v_guess)
+        self.opti.set_initial(self.time_list[0], t_guess)
 
