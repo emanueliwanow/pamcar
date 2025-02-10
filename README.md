@@ -1,2 +1,4 @@
-# pamcar
-This repository is destined to the development of the project "Multi Goal Trajectory Planning for an Obstacle Course" from the course "Projektseminar Praktische Anwendungen der Mechatronik"
+# Multi-Goal Trajectory Planning for a Car in an Obstacle Course
+This paper presents an approach for time-optimal trajectory planning of a car in an environment with multiple goals and obstacles. We formulate the problem as an Optimal Control (OC) framework, incorporating both trajectory optimization and goal ordering within a unified structure. To achieve this, we leverage the Traveling Salesman Problem (TSP) solution as an initial guess for the global solution within the OC framework. This approach enables joint optimization of individual trajectories and the goal visiting sequence. Our primary goal is to develop a method for the car to efficiently navigate through designated goals while respecting a set of equality and inequality constraints arising from the car’s dynamic model, the environment, and the task itself. The evaluation is performed in simulation using the CasADI library [1].
+
+![image](https://github.com/user-attachments/assets/22169c0f-101f-433e-b881-639ecdc6b256)
